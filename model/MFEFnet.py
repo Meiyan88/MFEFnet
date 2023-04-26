@@ -5,9 +5,9 @@ from torch import nn, einsum
 import os
 # import graphviz
 from torch.autograd import Function
-from Network.SFE_module import Unet_based_model
-from Network.DFF_module import MultiHeadAttention, MIL_Attention
-from Network.AMF_module import T2FLAIR_onlyFea,T2FLAIR_onlyImg
+from model.SFE_module import Unet_based_model
+from model.DFF_module import MultiHeadAttention, MIL_Attention
+from model.AMF_module import T2FLAIR_onlyFea,T2FLAIR_onlyImg
 
 class MFEFnet(nn.Module):
     def __init__(self):
