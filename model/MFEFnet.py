@@ -1,18 +1,18 @@
 import torch.nn.functional as F
-import segmentation_models_pytorch as smp
 import torch
 from torch import nn, einsum
 # from torchviz import make_dot
 import os
 # import graphviz
 from torch.autograd import Function
-from DFF_module import  MultiHeadAttention, MIL_Attention
-from AMF_module import T2FLAIR_onlyFea,T2FLAIR_onlyImg
+from Network.SFE_module import Unet_based_model
+from Network.DFF_module import MultiHeadAttention, MIL_Attention
+from Network.AMF_module import T2FLAIR_onlyFea,T2FLAIR_onlyImg
 
 class MFEFnet(nn.Module):
     def __init__(self):
         super(MFEFnet, self).__init__()
-        self.SFE_module = smp.Unet(
+        self.SFE_module = Unet_based_model(
                                 encoder_name='se_resnet50',
                                 classes=2,
                                 in_channels=4,
@@ -32,6 +32,8 @@ class MFEFnet(nn.Module):
         self.wh2 = nn.Linear(2048, 1024)
         self.leaky_relu2 = nn.LeakyReLU()
         self.bn2 = nn.BatchNorm1d(1024)
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
         # self.header_class = nn.Sequential(
         #     nn.Linear(2048, 2048, bias=False),
@@ -66,16 +68,17 @@ class MFEFnet(nn.Module):
         feature_concat = torch.cat([features_tumor.unsqueeze(1), features_img.unsqueeze(1), features_T2.unsqueeze(1),
                                     features_FLAIR.unsqueeze(1)], dim=1)
 
-        feature_fin, _ = self.multi_head_attention(feature_concat, feature_concat, feature_concat)
+        feature_fin, _ = self.Intra_slice(feature_concat, feature_concat, feature_concat)
+        feature_fin = feature_fin.view(feature_fin.size(0), -1)
 
         # out_c = feature_fin.view(feature_fin.size(0), -1)
         # result = self.header_class(feature_fin.view(feature_fin.size(0), -1))
 
         # return out_c, masks_tumor
 
-        feature_fin = self.wh(feature_fin)
-        feature_fin = self.bn1(feature_fin)
-        out_c = self.leaky_relu(feature_fin)
+        feature_fin = self.wh2(feature_fin)
+        feature_fin = self.bn2(feature_fin)
+        out_c = self.leaky_relu2(feature_fin)
 
         if len(batch_index) != 0:
             out_c_list = []
@@ -83,14 +86,14 @@ class MFEFnet(nn.Module):
                 if i < (len(batch_index) - 2) or i == (len(batch_index) - 2):
                     out_c_sub = out_c[j:batch_index[i + 1], :]
                     # out_c_sub = self.layer_norm(out_c_sub)
-                    out_c_sub = self.attention(out_c_sub)
+                    out_c_sub = self.Inter_slice(out_c_sub)
                     out_c_list.append(out_c_sub)
             # out_c, out_mask = self.feature_extractor(x1, x2)
             out_c = torch.cat(out_c_list, dim=0)
         else:
             # out_c = self.layer_norm(out_c)
             # out_c, A = self.attention(out_c)
-            out_c = self.attention(out_c)
+            out_c = self.Inter_slice(out_c)
 
         return out_c, masks_tumor
 
