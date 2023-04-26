@@ -1,26 +1,36 @@
+import segmentation_models_pytorch as smp
 import torch
+from torch import nn, einsum
+# from Network.transformer1 import ViT
+# from torchviz import make_dot
+# import os
+# import graphviz
+from torch.autograd import Function
 import torchvision
 import copy
-from torch import nn
+from Network.multi_head_layer import MultiHeadAttention
+
+def Get_Resnet():
+    resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=True)
+    ResModule = nn.Sequential(copy.deepcopy(resmodel1.bn1),
+                                copy.deepcopy(resmodel1.relu),
+                                copy.deepcopy(resmodel1.maxpool),
+                                copy.deepcopy(resmodel1.layer1),
+                                copy.deepcopy(resmodel1.layer2),
+                                copy.deepcopy(resmodel1.layer3),
+                                copy.deepcopy(resmodel1.layer4))
+    return ResModule
 
 ########################################################################################################################
-# T2-FLAIR mismatch Image-level
+# T2FLAIR_onlyImg
 class T2FLAIR_onlyImg(nn.Module):
     def __init__(self):
         super(T2FLAIR_onlyImg, self).__init__()
-        self.resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=True)
-        # self.resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=False)
         self.conv2 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         nn.init.kaiming_normal_(self.conv2.weight, mode='fan_out', nonlinearity='relu')
         if self.conv2.bias is not None:
             nn.init.constant_(self.conv2.bias, 0)
-        self.image_level = nn.Sequential(copy.deepcopy(self.resmodel1.bn1),
-                                    copy.deepcopy(self.resmodel1.relu),
-                                    copy.deepcopy(self.resmodel1.maxpool),
-                                    copy.deepcopy(self.resmodel1.layer1),
-                                    copy.deepcopy(self.resmodel1.layer2),
-                                     copy.deepcopy(self.resmodel1.layer3),
-                                     copy.deepcopy(self.resmodel1.layer4))
+        self.image_level = Get_Resnet()
 
     def forward(self, t2_flair):
         out_t2_flair = self.conv2(t2_flair)
@@ -29,7 +39,7 @@ class T2FLAIR_onlyImg(nn.Module):
         return out_t2_flair
 
 ########################################################################################################################
-# T2-FLAIR mismatch Feature-level
+# T2FLAIR_onlyFea
 class Channel_Max_Pooling(nn.Module):
     def __init__(self, kernel_size, stride):
         super(Channel_Max_Pooling, self).__init__()
@@ -60,9 +70,6 @@ class Channel_avg_Pooling(nn.Module):
 class T2FLAIR_onlyFea(nn.Module):
     def __init__(self):
         super(T2FLAIR_onlyFea, self).__init__()
-        self.resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=True)
-        # self.resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=False)
-
         self.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         nn.init.kaiming_normal_(self.conv1.weight)
         if self.conv1.bias is not None:
@@ -71,13 +78,7 @@ class T2FLAIR_onlyFea(nn.Module):
         nn.init.kaiming_normal_(self.conv1.weight)
         self.relu2 = nn.ReLU(inplace=True)
 
-        self.feature_level = nn.Sequential(copy.deepcopy(self.resmodel1.bn1),
-                                    copy.deepcopy(self.resmodel1.relu),
-                                    copy.deepcopy(self.resmodel1.maxpool),
-                                    copy.deepcopy(self.resmodel1.layer1),
-                                    copy.deepcopy(self.resmodel1.layer2),
-                                     copy.deepcopy(self.resmodel1.layer3),
-                                     copy.deepcopy(self.resmodel1.layer4))
+        self.feature_level = Get_Resnet()
 
         self.max_pool = Channel_Max_Pooling((1, 512), (1, 1))
         self.avg_pool = Channel_avg_Pooling((1, 512), (1, 1))
