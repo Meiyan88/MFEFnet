@@ -101,7 +101,7 @@ if __name__ == '__main__':
     T2 = torch.ones((2, 1, 224, 224))
     FLAIR = torch.ones((2, 1, 224, 224))
     Image = torch.ones((2, 4, 224, 224))
-    # batch_index indicates the
+    # batch_index indicates the sample index for inter-slice feature fusion part
     batch_index = []
 
     model = MFEFnet()
