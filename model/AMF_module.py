@@ -8,7 +8,6 @@ from torch import nn, einsum
 from torch.autograd import Function
 import torchvision
 import copy
-from Network.multi_head_layer import MultiHeadAttention
 
 def Get_Resnet():
     resmodel1 = getattr(torchvision.models, "resnet18")(pretrained=True)
